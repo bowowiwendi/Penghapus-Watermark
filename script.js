@@ -165,15 +165,30 @@ async function loadFFmpeg() {
         });
 
         showToast('🔄 Loading FFmpeg...', 'info');
+        
+        // Check if SharedArrayBuffer is available (required for FFmpeg WASM)
+        if (typeof SharedArrayBuffer === 'undefined') {
+            throw new Error('SharedArrayBuffer is not available. This requires COOP/COEP headers.');
+        }
+
         await ffmpeg.load({
-            coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/ffmpeg-core.js'
+            coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd/ffmpeg-core.js',
+            wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd/ffmpeg-core.wasm'
         });
 
         ffmpegLoaded = true;
         showToast('✅ FFmpeg loaded successfully!', 'success');
     } catch (error) {
         console.error('Failed to load FFmpeg:', error);
-        showToast('❌ Failed to load FFmpeg. Please refresh the page.', 'error');
+        let errorMsg = '❌ FFmpeg failed to load. ';
+        
+        if (typeof SharedArrayBuffer === 'undefined') {
+            errorMsg += 'Requires COOP/COEP headers. See console for details.';
+        } else {
+            errorMsg += error.message;
+        }
+        
+        showToast(errorMsg, 'error');
     }
 }
 
