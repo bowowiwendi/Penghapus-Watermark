@@ -106,6 +106,12 @@ function initializeEventListeners() {
     document.getElementById('addToBatchBtn').addEventListener('click', addToBatch);
     document.getElementById('downloadAllBtn').addEventListener('click', downloadAllBatch);
 
+    // Video controls
+    document.getElementById('playPauseBtn').addEventListener('click', togglePlayPause);
+    document.getElementById('videoSeek').addEventListener('input', seekVideo);
+    videoPreview.addEventListener('timeupdate', updateSeekbar);
+    videoPreview.addEventListener('loadedmetadata', updateDuration);
+
     // Canvas interactions
     overlayCanvas.addEventListener('mousedown', handleCanvasMouseDown);
     overlayCanvas.addEventListener('mousemove', handleCanvasMouseMove);
@@ -243,20 +249,78 @@ function loadVideo(file) {
     };
 }
 
-function setupCanvas() {
-    const rect = videoWrapper.getBoundingClientRect();
-    overlayCanvas.width = rect.width;
-    overlayCanvas.height = rect.height;
+// ========================================
+// Video Control Functions
+// ========================================
 
-    // Reset selections
-    selectionBoxes = [];
-    drawCanvas();
+function togglePlayPause() {
+    if (!videoPreview.src) return;
+    
+    if (videoPreview.paused) {
+        videoPreview.play();
+        document.querySelector('#playPauseBtn').innerHTML = '<span>⏸️</span> Pause';
+    } else {
+        videoPreview.pause();
+        document.querySelector('#playPauseBtn').innerHTML = '<span>▶️</span> Play';
+    }
+}
+
+function seekVideo(e) {
+    const seekBar = e.target;
+    const seekTo = (seekBar.value / 100) * videoPreview.duration;
+    videoPreview.currentTime = seekTo;
+}
+
+function updateSeekbar() {
+    const seekBar = document.getElementById('videoSeek');
+    const currentTime = videoPreview.currentTime;
+    const duration = videoPreview.duration;
+    
+    if (duration > 0) {
+        seekBar.value = (currentTime / duration) * 100;
+    }
+    
+    document.getElementById('videoTime').textContent = formatTime(currentTime);
+}
+
+function updateDuration() {
+    document.getElementById('videoDuration').textContent = formatTime(videoPreview.duration);
+}
+
+function setupCanvas() {
+    // Wait for video to be fully loaded
+    setTimeout(() => {
+        const rect = videoWrapper.getBoundingClientRect();
+        const videoRect = videoPreview.getBoundingClientRect();
+        
+        // Set canvas size to match the video wrapper
+        overlayCanvas.width = rect.width;
+        overlayCanvas.height = rect.height;
+        overlayCanvas.style.width = rect.width + 'px';
+        overlayCanvas.style.height = rect.height + 'px';
+
+        console.log('Canvas setup:', {
+            wrapperWidth: rect.width,
+            wrapperHeight: rect.height,
+            videoWidth: videoPreview.videoWidth,
+            videoHeight: videoPreview.videoHeight,
+            canvasWidth: overlayCanvas.width,
+            canvasHeight: overlayCanvas.height
+        });
+
+        // Reset selections
+        selectionBoxes = [];
+        activeBox = null;
+        drawCanvas();
+    }, 100);
 
     // Handle resize
     window.addEventListener('resize', () => {
         const newRect = videoWrapper.getBoundingClientRect();
         overlayCanvas.width = newRect.width;
         overlayCanvas.height = newRect.height;
+        overlayCanvas.style.width = newRect.width + 'px';
+        overlayCanvas.style.height = newRect.height + 'px';
         drawCanvas();
     });
 }
@@ -277,29 +341,49 @@ function resetEditor() {
 function drawCanvas() {
     clearCanvas();
 
+    // Hide hint when there are boxes
+    const hint = document.getElementById('canvasHint');
+    if (hint) {
+        hint.classList.toggle('hidden', selectionBoxes.length > 0);
+    }
+
     selectionBoxes.forEach((box, index) => {
         const { x, y, width, height } = box;
+        const isActive = (activeBox === box) || (index === selectionBoxes.length - 1 && activeBox);
 
-        // Draw selection box
-        canvasCtx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+        // Draw selection box with semi-transparent red
+        canvasCtx.fillStyle = 'rgba(255, 0, 0, 0.3)';
         canvasCtx.fillRect(x, y, width, height);
 
-        canvasCtx.strokeStyle = index === selectionBoxes.length - 1 || activeBox === box
-            ? 'rgba(255, 255, 0, 1)'
-            : 'rgba(255, 0, 0, 0.8)';
+        // Draw border
+        canvasCtx.strokeStyle = isActive ? 'rgba(255, 255, 0, 1)' : 'rgba(255, 0, 0, 0.9)';
         canvasCtx.lineWidth = 3;
+        canvasCtx.setLineDash(isActive ? [5, 5] : []);
         canvasCtx.strokeRect(x, y, width, height);
+        canvasCtx.setLineDash([]);
 
         // Draw resize handles on active box
-        if (activeBox === box || index === selectionBoxes.length - 1) {
+        if (isActive && width > 20 && height > 20) {
             drawResizeHandles(x, y, width, height);
         }
 
         // Draw label
-        canvasCtx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-        canvasCtx.font = '12px Poppins';
-        canvasCtx.fillText(`Area ${index + 1}`, x + 5, y + 15);
+        canvasCtx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        canvasCtx.font = 'bold 13px Poppins';
+        canvasCtx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+        canvasCtx.shadowBlur = 4;
+        canvasCtx.fillText(`Watermark ${index + 1}`, x + 8, y + 20);
+        canvasCtx.shadowBlur = 0;
     });
+
+    // Draw instruction if no boxes
+    if (selectionBoxes.length === 0) {
+        canvasCtx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        canvasCtx.font = '16px Poppins';
+        canvasCtx.textAlign = 'center';
+        canvasCtx.fillText('Click and drag to select watermark area', overlayCanvas.width / 2, overlayCanvas.height / 2);
+        canvasCtx.textAlign = 'left';
+    }
 }
 
 function drawResizeHandles(x, y, width, height) {
@@ -331,19 +415,17 @@ function clearCanvas() {
 
 function getCanvasCoordinates(e) {
     const rect = overlayCanvas.getBoundingClientRect();
-    const scaleX = overlayCanvas.width / rect.width;
-    const scaleY = overlayCanvas.height / rect.height;
-
-    if (e.touches) {
+    
+    if (e.touches && e.touches.length > 0) {
         return {
-            x: (e.touches[0].clientX - rect.left) * scaleX,
-            y: (e.touches[0].clientY - rect.top) * scaleY
+            x: e.touches[0].clientX - rect.left,
+            y: e.touches[0].clientY - rect.top
         };
     }
 
     return {
-        x: (e.clientX - rect.left) * scaleX,
-        y: (e.clientY - rect.top) * scaleY
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
     };
 }
 
@@ -367,19 +449,33 @@ function getResizeHandle(x, y, box) {
 }
 
 function handleCanvasMouseDown(e) {
+    e.preventDefault();
     if (!videoPreview.videoWidth) return;
 
     const coords = getCanvasCoordinates(e);
-    const clickedBox = findBoxAtPoint(coords.x, coords.y);
+    
+    // Check if clicking on existing box
+    let clickedBox = null;
+    for (let i = selectionBoxes.length - 1; i >= 0; i--) {
+        const box = selectionBoxes[i];
+        if (coords.x >= box.x && coords.x <= box.x + box.width &&
+            coords.y >= box.y && coords.y <= box.y + box.height) {
+            clickedBox = box;
+            break;
+        }
+    }
 
     if (clickedBox) {
-        activeBox = clickedBox;
+        // Check if clicking on resize handle
         const handle = getResizeHandle(coords.x, coords.y, clickedBox);
-
+        
         if (handle) {
+            activeBox = clickedBox;
             isResizing = true;
             resizeHandle = handle;
         } else {
+            // Drag existing box
+            activeBox = clickedBox;
             isDragging = true;
             dragOffset = {
                 x: coords.x - clickedBox.x,
@@ -392,13 +488,12 @@ function handleCanvasMouseDown(e) {
             selectionBoxes = [];
         }
 
+        // Start creating new box
         activeBox = {
             x: coords.x,
             y: coords.y,
             width: 0,
-            height: 0,
-            startX: coords.x,
-            startY: coords.y
+            height: 0
         };
         selectionBoxes.push(activeBox);
         isResizing = true;
@@ -409,18 +504,27 @@ function handleCanvasMouseDown(e) {
 }
 
 function handleCanvasMouseMove(e) {
+    e.preventDefault();
     if (!activeBox) return;
 
     const coords = getCanvasCoordinates(e);
 
     if (isDragging) {
+        // Move the box
         activeBox.x = coords.x - dragOffset.x;
         activeBox.y = coords.y - dragOffset.y;
 
         // Boundary checks
-        activeBox.x = Math.max(0, Math.min(activeBox.x, overlayCanvas.width - activeBox.width));
-        activeBox.y = Math.max(0, Math.min(activeBox.y, overlayCanvas.height - activeBox.height));
+        if (activeBox.x < 0) activeBox.x = 0;
+        if (activeBox.y < 0) activeBox.y = 0;
+        if (activeBox.x + activeBox.width > overlayCanvas.width) {
+            activeBox.x = overlayCanvas.width - activeBox.width;
+        }
+        if (activeBox.y + activeBox.height > overlayCanvas.height) {
+            activeBox.y = overlayCanvas.height - activeBox.height;
+        }
     } else if (isResizing) {
+        // Resize the box based on which handle
         switch (resizeHandle) {
             case 'se':
                 activeBox.width = Math.max(30, coords.x - activeBox.x);
