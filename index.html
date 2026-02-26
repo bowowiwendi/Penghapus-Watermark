@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎬 Video Watermark Remover Pro</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <span class="logo-icon">🎬</span>
+                    <h1>Video Watermark Remover Pro</h1>
+                </div>
+                <div class="header-actions">
+                    <button class="theme-toggle" id="themeToggle" title="Toggle Dark Mode">
+                        <span class="theme-icon">🌙</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Upload Section -->
+            <section class="upload-section" id="uploadSection">
+                <div class="upload-container glass-panel">
+                    <div class="upload-icon">📁</div>
+                    <h2>Upload Your Video</h2>
+                    <p>Support: MP4, MOV, WEBM</p>
+                    <div class="upload-actions">
+                        <button class="btn btn-primary" id="selectVideoBtn">
+                            <span>📂</span> Pilih Video
+                        </button>
+                        <input type="file" id="videoInput" accept=".mp4,.mov,.webm" hidden>
+                    </div>
+                    <div class="drag-drop-area" id="dragDropArea">
+                        <p>🖱️ Drag & Drop video here</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Editor Section -->
+            <section class="editor-section" id="editorSection" style="display: none;">
+                <div class="editor-container">
+                    <!-- Video Preview -->
+                    <div class="video-preview-container glass-panel">
+                        <div class="preview-header">
+                            <h3>📹 Video Preview</h3>
+                            <button class="btn btn-secondary btn-sm" id="changeVideoBtn">Change Video</button>
+                        </div>
+                        <div class="video-wrapper" id="videoWrapper">
+                            <video id="videoPreview" playsinline></video>
+                            <canvas id="overlayCanvas"></canvas>
+                        </div>
+                        <div class="video-info">
+                            <span id="videoName">No video selected</span>
+                            <span id="videoDuration">00:00</span>
+                        </div>
+                    </div>
+
+                    <!-- Control Panel -->
+                    <div class="control-panel glass-panel">
+                        <h3>⚙️ Settings</h3>
+                        
+                        <!-- Selection Mode -->
+                        <div class="control-group">
+                            <label>Selection Mode</label>
+                            <div class="button-group">
+                                <button class="btn btn-toggle active" data-mode="single" id="singleModeBtn">
+                                    Single Area
+                                </button>
+                                <button class="btn btn-toggle" data-mode="multi" id="multiModeBtn">
+                                    Multiple Areas
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Removal Method -->
+                        <div class="control-group">
+                            <label>Removal Method</label>
+                            <div class="method-cards">
+                                <div class="method-card active" data-method="fast">
+                                    <div class="method-icon">⚡</div>
+                                    <h4>Mode Cepat</h4>
+                                    <p>Light blur processing</p>
+                                </div>
+                                <div class="method-card" data-method="clean">
+                                    <div class="method-icon">✨</div>
+                                    <h4>Mode Bersih</h4>
+                                    <p>Crop and repair</p>
+                                </div>
+                                <div class="method-card" data-method="ai">
+                                    <div class="method-icon">🤖</div>
+                                    <h4>Mode AI Pro</h4>
+                                    <p>Advanced inpainting</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Export Quality -->
+                        <div class="control-group">
+                            <label>Export Quality</label>
+                            <select class="select-input" id="qualitySelect">
+                                <option value="480">480p (SD)</option>
+                                <option value="720" selected>720p (HD)</option>
+                                <option value="1080">1080p (Full HD)</option>
+                            </select>
+                        </div>
+
+                        <!-- Auto Detect -->
+                        <div class="control-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="autoDetectCheck">
+                                <span>🔍 Auto Detect Watermark (AI)</span>
+                            </label>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="action-buttons">
+                            <button class="btn btn-primary btn-large" id="processBtn">
+                                <span>🗑️</span> Hapus Watermark
+                            </button>
+                            <button class="btn btn-secondary" id="clearSelectionBtn">
+                                <span>🔄</span> Clear Selection
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Progress Section -->
+            <section class="progress-section" id="progressSection" style="display: none;">
+                <div class="progress-container glass-panel">
+                    <div class="loading-animation">
+                        <div class="spinner"></div>
+                        <div class="loading-text">Processing your video...</div>
+                    </div>
+                    <div class="progress-info">
+                        <span id="progressStatus">Initializing FFmpeg...</span>
+                        <span id="progressPercent">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-details" id="progressDetails">
+                        Please wait, this may take a few minutes...
+                    </div>
+                </div>
+            </section>
+
+            <!-- Download Section -->
+            <section class="download-section" id="downloadSection" style="display: none;">
+                <div class="download-container glass-panel">
+                    <div class="success-icon">✅</div>
+                    <h2>Processing Complete!</h2>
+                    <p>Your video is ready for download</p>
+                    
+                    <div class="video-result">
+                        <video id="resultVideo" controls playsinline></video>
+                    </div>
+                    
+                    <div class="download-actions">
+                        <a class="btn btn-primary btn-large" id="downloadBtn">
+                            <span>⬇️</span> Download Video
+                        </a>
+                        <button class="btn btn-secondary" id="processAnotherBtn">
+                            <span>📹</span> Process Another Video
+                        </button>
+                    </div>
+                    
+                    <div class="batch-actions" id="batchActions">
+                        <button class="btn btn-outline" id="addToBatchBtn">
+                            <span>➕</span> Add to Batch
+                        </button>
+                        <button class="btn btn-outline" id="downloadAllBtn" disabled>
+                            <span>📦</span> Download All (<span id="batchCount">0</span>)
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>🎬 Video Watermark Remover Pro &copy; 2024 | Powered by FFmpeg WASM</p>
+        </footer>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- FFmpeg WASM -->
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
